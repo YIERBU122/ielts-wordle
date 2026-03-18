@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IELTS Wordle</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#111;--surface2:#1a1a1a;
+  --border:#2a2a2a;--border2:#333;
+  --text:#e8e8e8;--muted:#555;--muted2:#888;
+  --correct:#538d4e;--present:#b59f3b;
+  --absent:#2a2a2a;--absent-text:#555;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+#app{height:100vh;display:flex;flex-direction:column}
+
+header{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;border-bottom:1px solid var(--border);flex-shrink:0}
+.logo{font-family:var(--mono);font-size:13px;font-weight:500;letter-spacing:.08em}
+.logo span{color:var(--muted2)}
+.tab-btns{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px}
+.tab-btn{font-family:var(--mono);font-size:11px;padding:4px 12px;border:none;background:transparent;color:var(--muted2);cursor:pointer;border-radius:4px;letter-spacing:.05em;transition:all .15s}
+.tab-btn.active{background:var(--surface);color:var(--text);border:1px solid var(--border2)}
+.user-badge{font-family:var(--mono);font-size:11px;color:var(--muted2);letter-spacing:.05em}
+.user-badge strong{color:var(--text)}
+
+.screen{display:none;flex:1;overflow-y:auto}
+.screen.active{display:flex}
+
+/* LOGIN */
+#login-screen{align-items:center;justify-content:center;flex-direction:column}
+.login-box{width:300px;text-align:center}
+.login-title{font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.02em;margin-bottom:6px}
+.login-title span{color:var(--muted)}
+.login-sub{font-size:12px;color:var(--muted2);margin-bottom:32px;font-weight:300;line-height:1.6}
+.input-group{display:flex;gap:8px;margin-bottom:10px}
+.id-input{flex:1;background:var(--surface);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:13px;padding:9px 12px;border-radius:6px;outline:none;transition:border-color .15s;letter-spacing:.05em}
+.id-input:focus{border-color:var(--muted2)}
+.id-input::placeholder{color:var(--muted)}
+.btn-enter{background:var(--text);color:var(--bg);border:none;font-family:var(--mono);font-size:12px;font-weight:500;padding:9px 16px;border-radius:6px;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn-enter:hover{opacity:.85}
+.btn-enter:disabled{opacity:.4;cursor:not-allowed}
+.login-note{font-size:11px;color:var(--muted);font-weight:300}
+
+/* GAME */
+#game-screen{flex-direction:column;align-items:center;padding:20px 16px;gap:16px}
+.grid{display:flex;flex-direction:column;gap:5px}
+.grid-row{display:flex;gap:5px}
+.tile{width:56px;height:56px;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:19px;font-weight:500;text-transform:uppercase;color:var(--text);background:transparent;transition:border-color .1s}
+.tile.has-letter{border-color:var(--muted2)}
+.tile.revealed{border-color:transparent;animation:flip .5s ease forwards}
+.tile.correct{--tbg:var(--correct)}
+.tile.present{--tbg:var(--present)}
+.tile.absent{--tbg:var(--absent);color:var(--absent-text)}
+@keyframes flip{0%{transform:scaleY(1);background:transparent}49%{transform:scaleY(0);background:transparent}50%{transform:scaleY(0);background:var(--tbg)}100%{transform:scaleY(1);background:var(--tbg)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}
+.tile.shake{animation:shake .4s ease}
+
+.result-bar{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border2);border-radius:8px;padding:14px 18px;display:none;flex-direction:column;gap:8px}
+.result-bar.show{display:flex}
+.result-word{font-family:var(--mono);font-size:20px;font-weight:500;letter-spacing:.1em;text-transform:uppercase}
+.result-def{font-size:12px;color:var(--muted2);font-weight:300;line-height:1.5}
+.result-outcome{font-family:var(--mono);font-size:11px;letter-spacing:.05em}
+.result-outcome.win{color:var(--correct)}
+.result-outcome.lose{color:#e06c6c}
+.btn-next{align-self:flex-start;background:transparent;border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 14px;border-radius:4px;cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.btn-next:hover{border-color:var(--muted2);background:var(--surface2)}
+
+.keyboard{display:flex;flex-direction:column;gap:5px;align-items:center;user-select:none}
+.kb-row{display:flex;gap:4px}
+.key{height:54px;min-width:40px;background:var(--surface2);border:1px solid var(--border2);color:var(--text);font-family:var(--mono);font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:4px;transition:all .15s;text-transform:uppercase;letter-spacing:.02em}
+.key:hover{border-color:var(--muted2)}
+.key:active{transform:scale(.95)}
+.key.wide{min-width:60px;font-size:10px}
+.key.correct{background:var(--correct);border-color:var(--correct);color:#fff}
+.key.present{background:var(--present);border-color:var(--present);color:#fff}
+.key.absent{background:var(--absent);border-color:var(--absent);color:var(--muted)}
+
+/* LEADERBOARD */
+#board-screen{flex-direction:column;padding:24px 20px;max-width:680px;margin:0 auto;width:100%;gap:16px}
+.board-top{display:flex;align-items:baseline;justify-content:space-between}
+.board-title{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;color:var(--muted2);text-transform:uppercase}
+.refresh-btn{background:transparent;border:1px solid var(--border);color:var(--muted2);font-family:var(--mono);font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;letter-spacing:.05em;transition:all .15s}
+.refresh-btn:hover{border-color:var(--muted2);color:var(--text)}
+.lb-table{width:100%;border-collapse:collapse}
+.lb-table th{font-family:var(--mono);font-size:10px;font-weight:400;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:0 10px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.lb-table th:not(:first-child){text-align:right}
+.lb-table td{padding:11px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+.lb-table td:not(:first-child){font-family:var(--mono);text-align:right;color:var(--muted2)}
+.lb-table tr:last-child td{border-bottom:none}
+.lb-name{font-weight:500}
+.lb-name.me::after{content:'you';font-family:var(--mono);font-size:9px;color:var(--correct);background:rgba(83,141,78,.15);padding:2px 5px;border-radius:3px;margin-left:8px;letter-spacing:.03em;font-weight:400}
+.lb-empty{text-align:center;padding:40px;color:var(--muted);font-size:13px;font-weight:300}
+
+.toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);font-family:var(--mono);font-size:11px;font-weight:500;padding:7px 16px;border-radius:20px;pointer-events:none;opacity:0;transition:opacity .2s;z-index:200;white-space:nowrap;letter-spacing:.05em}
+.toast.show{opacity:1}
+
+@media(max-width:420px){
+  .tile{width:48px;height:48px;font-size:17px}
+  .key{height:46px;min-width:32px}.key.wide{min-width:50px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header id="main-header" style="display:none">
+  <div class="logo">IELTS<span>/</span>WORDLE</div>
+  <div style="display:flex;align-items:center;gap:14px">
+    <div class="tab-btns">
+      <button class="tab-btn active" onclick="showScreen('game')">Play</button>
+      <button class="tab-btn" onclick="showScreen('board')">Leaderboard</button>
+    </div>
+    <div class="user-badge" id="user-badge"></div>
+  </div>
+</header>
+
+<div id="login-screen" class="screen active">
+  <div class="login-box">
+    <div class="login-title">IELTS<span>/</span>WORDLE</div>
+    <div class="login-sub">Academic vocabulary · Solo play · Global rankings</div>
+    <div class="input-group">
+      <input class="id-input" id="id-input" placeholder="choose an id" maxlength="16" autocomplete="off" spellcheck="false">
+      <button class="btn-enter" id="enter-btn" onclick="enterGame()">Enter →</button>
+    </div>
+    <div class="login-note">No password needed. Stats are saved automatically.</div>
+  </div>
+</div>
+
+<div id="game-screen" class="screen">
+  <div class="grid" id="grid"></div>
+  <div class="result-bar" id="result-bar">
+    <div class="result-word" id="result-word"></div>
+    <div class="result-def" id="result-def"></div>
+    <div class="result-outcome" id="result-outcome"></div>
+    <button class="btn-next" onclick="nextWord()">next word →</button>
+  </div>
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<div id="board-screen" class="screen">
+  <div class="board-top">
+    <div class="board-title">Leaderboard</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-family:var(--mono);font-size:10px;color:var(--muted)" id="board-count"></span>
+      <button class="refresh-btn" onclick="loadLB()">↻ refresh</button>
+    </div>
+  </div>
+  <table class="lb-table">
+    <thead><tr>
+      <th style="width:32px"></th>
+      <th>Player</th>
+      <th>Wins</th>
+      <th>Played</th>
+      <th>Avg Guesses</th>
+      <th>Streak</th>
+    </tr></thead>
+    <tbody id="lb-body"></tbody>
+  </table>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ============================================================
+//  PASTE YOUR FIREBASE CONFIG HERE
+// ============================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyC9yNYfxZnjkQtKaJ8Ri85WK8uwYEKzwdI",
+  authDomain: "ielts-wordle.firebaseapp.com",
+  projectId: "ielts-wordle",
+  storageBucket: "ielts-wordle.firebasestorage.app",
+  messagingSenderId: "900997049202",
+  appId: "1:900997049202:web:0bb0ce0af73889e7248beb"
+};
+// ============================================================
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+// ── DB helpers ──
+async function loadUser(id) {
+  try {
+    const snap = await getDoc(doc(db, "players", id));
+    return snap.exists() ? snap.data() : null;
+  } catch { return null; }
+}
+
+async function saveUser(id, data) {
+  try {
+    await setDoc(doc(db, "players", id), data, { merge: true });
+  } catch (e) { console.error("saveUser:", e); }
+}
+
+async function allUsers() {
+  try {
+    const snap = await getDocs(collection(db, "players"));
+    return snap.docs.map(d => d.data());
+  } catch { return []; }
+}
+
+// ── Word list ──
+const WORDS = [
+  {w:'ACUTE',d:'very serious or severe'},{w:'ADEPT',d:'highly skilled or proficient'},
+  {w:'ADOPT',d:'to take up or accept'},{w:'ALERT',d:'quick to notice; a warning'},
+  {w:'ALIGN',d:'to arrange in a straight line'},{w:'AMEND',d:'to make minor changes to a text'},
+  {w:'AMPLE',d:'more than enough'},{w:'ARISE',d:'to emerge or come into being'},
+  {w:'ASSET',d:'a useful or valuable thing'},{w:'AWARE',d:'having knowledge of a situation'},
+  {w:'BASIS',d:'the underlying principle'},{w:'BLEND',d:'to mix smoothly together'},
+  {w:'BOOST',d:'to increase or improve'},{w:'BOUND',d:'certain to happen; a limit'},
+  {w:'BRIEF',d:'short in time; concise'},{w:'BROAD',d:'wide; covering many subjects'},
+  {w:'CAUSE',d:'a reason; to make something happen'},{w:'CEASE',d:'to stop happening or existing'},
+  {w:'CIVIL',d:'relating to citizens or civic life'},{w:'CLAIM',d:'to state as fact; an assertion'},
+  {w:'CRAFT',d:'skill in making; an occupation'},{w:'CRIME',d:'an illegal act'},
+  {w:'CRUDE',d:'in a raw state; rough'},{w:'CYCLE',d:'a series of repeated events'},
+  {w:'DECAY',d:'to rot; a gradual decline'},{w:'DENSE',d:'closely compacted in substance'},
+  {w:'DEPTH',d:'distance downward; complexity'},{w:'DRAFT',d:'a preliminary version of a text'},
+  {w:'DRAIN',d:'to draw off liquid; to exhaust'},{w:'ELITE',d:'a group regarded as superior'},
+  {w:'EMBED',d:'to fix firmly in surrounding matter'},{w:'ENACT',d:'to put a law into effect'},
+  {w:'EQUAL',d:'the same in value or status'},{w:'ETHIC',d:'a moral principle governing behaviour'},
+  {w:'EVADE',d:'to escape or avoid by cleverness'},{w:'EXIST',d:'to have objective reality'},
+  {w:'FAINT',d:'weak and barely perceptible'},{w:'FATAL',d:'causing death; leading to failure'},
+  {w:'FAULT',d:'a defect; responsibility for a mistake'},{w:'FIELD',d:'an area of study; open land'},
+  {w:'FINAL',d:'coming at the end; conclusive'},{w:'FIXED',d:'fastened securely; not changing'},
+  {w:'FLUID',d:'a liquid; able to flow freely'},{w:'FOCUS',d:'the centre of interest or attention'},
+  {w:'FORCE',d:'strength; to make someone act'},{w:'FORGE',d:'to develop strongly; to counterfeit'},
+  {w:'FOUND',d:'to establish an institution'},{w:'FRAME',d:'a structure; to formulate an idea'},
+  {w:'FRANK',d:'open and honest in expression'},{w:'FRAUD',d:'criminal deception for financial gain'},
+  {w:'FUNDS',d:'money available for a purpose'},{w:'GAUGE',d:'to estimate; a measuring instrument'},
+  {w:'GIANT',d:'unusually large in size'},{w:'GIVEN',d:'specified; taking into account'},
+  {w:'GLOBE',d:'the earth; a spherical object'},{w:'GRACE',d:'elegance; courteous goodwill'},
+  {w:'GRADE',d:'a level of quality; a mark'},{w:'GRANT',d:'to give formally; a sum of money'},
+  {w:'GRASP',d:'to seize firmly; to understand'},{w:'GRAVE',d:'serious and solemn; a burial place'},
+  {w:'GROUP',d:'a number of people or things together'},{w:'GUARD',d:'to watch over; a protector'},
+  {w:'GUIDE',d:'to direct; a book of information'},{w:'HEDGE',d:'to limit risk; a row of shrubs'},
+  {w:'HENCE',d:'as a consequence; from this time'},{w:'IDEAL',d:'most suitable; a perfect standard'},
+  {w:'IMAGE',d:'a visual representation'},{w:'IMPLY',d:'to suggest without stating directly'},
+  {w:'INDEX',d:'an alphabetical list; an indicator'},{w:'INFER',d:'to deduce from evidence'},
+  {w:'INPUT',d:'what is put in; a contribution'},{w:'ISSUE',d:'an important topic; to supply officially'},
+  {w:'JOINT',d:'shared by two parties; a connection'},{w:'JUDGE',d:'to form an opinion; a legal officer'},
+  {w:'LABEL',d:'a tag with information; to classify'},{w:'LAYER',d:'a sheet of material; a level'},
+  {w:'LEGAL',d:'permitted by law; relating to law'},{w:'LIMIT',d:'a point beyond which nothing passes'},
+  {w:'LOCAL',d:'relating to a particular area'},{w:'LOGIC',d:'reasoning by strict principles'},
+  {w:'MAJOR',d:'important; a field of study'},{w:'MEDIA',d:'the means of mass communication'},
+  {w:'MERIT',d:'the quality of deserving; excellence'},{w:'MINOR',d:'lesser; not yet adult'},
+  {w:'MIXED',d:'consisting of different elements'},{w:'MODEL',d:'a representation; an exemplar'},
+  {w:'MORAL',d:'concerned with right and wrong'},{w:'MOUNT',d:'to climb; to increase gradually'},
+  {w:'NERVE',d:'boldness; a fibre transmitting impulses'},{w:'NOVEL',d:'new and original; a fiction book'},
+  {w:'OCCUR',d:'to happen; to come to mind'},{w:'ONSET',d:'the beginning of something'},
+  {w:'ORDER',d:'a command; an arrangement'},{w:'OUTER',d:'outside; further from the centre'},
+  {w:'PANEL',d:'a group of experts; a flat board'},{w:'PEACE',d:'freedom from war or conflict'},
+  {w:'PHASE',d:'a distinct stage in a process'},{w:'PILOT',d:'a person who flies; a trial run'},
+  {w:'PIVOT',d:'to turn on a fixed point; a key element'},{w:'PLAIN',d:'simple; clearly expressed; flat land'},
+  {w:'POWER',d:'ability to act; energy; authority'},{w:'PRESS',d:'to push firmly; the news media'},
+  {w:'PRIME',d:'most important; of the best quality'},{w:'PRIOR',d:'existing before; earlier in time'},
+  {w:'PROBE',d:'to investigate; an exploratory device'},{w:'PRONE',d:'likely to suffer from something'},
+  {w:'PROOF',d:'evidence that something is true'},{w:'PROVE',d:'to demonstrate the truth of something'},
+  {w:'PROXY',d:'a person acting on behalf of another'},{w:'QUEST',d:'a long search for something'},
+  {w:'QUERY',d:'a question; to doubt the accuracy of'},{w:'QUOTA',d:'a fixed share that is due'},
+  {w:'QUOTE',d:'to repeat someone\'s words; a price'},{w:'RAISE',d:'to lift; to bring up a topic'},
+  {w:'RANGE',d:'the extent; a variety of things'},{w:'RAPID',d:'happening in a short time'},
+  {w:'RATIO',d:'the relationship between two amounts'},{w:'REACH',d:'to arrive at; extent of influence'},
+  {w:'REALM',d:'a kingdom; an area of activity'},{w:'REFER',d:'to mention; to direct attention'},
+  {w:'RIGID',d:'unable to bend; not adaptable'},{w:'RIVAL',d:'a person competing with another'},
+  {w:'ROUTE',d:'a way taken to reach a destination'},{w:'RURAL',d:'relating to the countryside'},
+  {w:'SCALE',d:'size relative to something; to climb'},{w:'SCOPE',d:'the range of a subject; opportunity'},
+  {w:'SEIZE',d:'to take hold of suddenly'},{w:'SENSE',d:'a faculty; meaning; to perceive'},
+  {w:'SHARP',d:'having a fine edge; mentally acute'},{w:'SHIFT',d:'to move; a change; a work period'},
+  {w:'SHOCK',d:'a sudden disturbing event'},{w:'SKILL',d:'the ability to do something well'},
+  {w:'SMART',d:'intelligent; neat in appearance'},{w:'SOLAR',d:'relating to the sun'},
+  {w:'SOLID',d:'firm and stable; reliable'},{w:'SOLVE',d:'to find an answer to a problem'},
+  {w:'SPARE',d:'additional; to give time or money'},{w:'SPEND',d:'to pay out money; to pass time'},
+  {w:'SPLIT',d:'to divide into parts'},{w:'STAFF',d:'the employees of an organisation'},
+  {w:'STAGE',d:'a point in development; a platform'},{w:'STAKE',d:'a financial interest; a strong post'},
+  {w:'STATE',d:'a nation; a condition; to declare'},{w:'STEEP',d:'sharply rising; very expensive'},
+  {w:'STERN',d:'serious and strict in manner'},{w:'STOCK',d:'shares in a company; a supply'},
+  {w:'STORE',d:'to keep for future use; a shop'},{w:'STUDY',d:'the act of learning; a room for work'},
+  {w:'STYLE',d:'a manner of doing something'},{w:'SURGE',d:'a sudden large increase'},
+  {w:'SWIFT',d:'moving or happening quickly'},{w:'TENSE',d:'stretched tight; nervous; a verb form'},
+  {w:'THEME',d:'the subject of a piece of work'},{w:'TIGHT',d:'firmly fixed; strict; close-fitting'},
+  {w:'TITLE',d:'a name given to something; a championship'},{w:'TOKEN',d:'a symbol; done as a mere gesture'},
+  {w:'TOTAL',d:'comprising the whole amount'},{w:'TOUGH',d:'strong; difficult to do or deal with'},
+  {w:'TRACE',d:'to find the origin of; a mark left'},{w:'TRACK',d:'to follow; a path or course'},
+  {w:'TRADE',d:'the buying and selling of goods'},{w:'TRAIT',d:'a distinguishing quality of character'},
+  {w:'TREND',d:'a general direction of change'},{w:'TRIAL',d:'a test of something; a legal hearing'},
+  {w:'TRUST',d:'firm belief in reliability; a fund'},{w:'TRUTH',d:'the quality of being true'},
+  {w:'UNITY',d:'the state of being united'},{w:'URBAN',d:'relating to a town or city'},
+  {w:'USAGE',d:'the way in which something is used'},{w:'VALID',d:'actually supporting the intended point'},
+  {w:'VALUE',d:'the worth of something; to consider important'},{w:'VITAL',d:'absolutely necessary; relating to life'},
+  {w:'VIVID',d:'producing strong mental images; bright'},{w:'WASTE',d:'to use carelessly; unwanted matter'},
+  {w:'WEIGH',d:'to find the weight of; to consider'},{w:'WIELD',d:'to hold and use a weapon or tool'},
+  {w:'WORLD',d:'the earth; a sphere of activity'},{w:'WORTH',d:'having a specified value; deserving'},
+  {w:'YIELD',d:'to produce a result; to give way'}
+];
+
+// ── Game constants ──
+const MAX = 6, LEN = 5;
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','⌫']
+];
+
+// ── Game state ──
+let userId = null, word = null, def = null;
+let guesses = [], results = [], keyStates = {}, input = '', done = false;
+let usedWords = new Set();
+
+// ── Login ──
+document.getElementById('id-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') enterGame();
+});
+
+async function enterGame() {
+  const raw = document.getElementById('id-input').value.trim().toLowerCase();
+  if (!raw) return;
+  if (!/^[a-z0-9_-]{1,16}$/.test(raw)) { toast('letters, numbers, _ or - only'); return; }
+
+  const btn = document.getElementById('enter-btn');
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  userId = raw;
+  let data = await loadUser(userId);
+  if (!data) {
+    data = { id: userId, wins: 0, played: 0, streak: 0, bestStreak: 0, totalGuesses: 0, usedWords: [] };
+    await saveUser(userId, data);
+  }
+  usedWords = new Set(data.usedWords || []);
+
+  document.getElementById('user-badge').innerHTML = `<strong>${userId}</strong>`;
+  document.getElementById('main-header').style.display = 'flex';
+  showScreen('game');
+  buildKB();
+  startGame();
+  document.addEventListener('keydown', onKey);
+}
+
+// ── Screen routing ──
+function showScreen(n) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(n + '-screen').classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    if ((n === 'game' && b.textContent === 'Play') ||
+        (n === 'board' && b.textContent === 'Leaderboard')) b.classList.add('active');
+  });
+  if (n === 'board') loadLB();
+}
+window.showScreen = showScreen;
+
+// ── Game setup ──
+function pickWord() {
+  const av = WORDS.filter(x => !usedWords.has(x.w));
+  const pool = av.length > 0 ? av : WORDS;
+  if (!av.length) usedWords.clear();
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function startGame() {
+  const p = pickWord();
+  word = p.w; def = p.d;
+  guesses = []; results = []; keyStates = {}; input = ''; done = false;
+  document.getElementById('result-bar').classList.remove('show');
+  buildGrid(); updateKB();
+}
+window.nextWord = () => startGame();
+
+// ── Grid ──
+function buildGrid() {
+  const g = document.getElementById('grid'); g.innerHTML = '';
+  for (let r = 0; r < MAX; r++) {
+    const row = document.createElement('div'); row.className = 'grid-row';
+    for (let c = 0; c < LEN; c++) {
+      const t = document.createElement('div'); t.className = 'tile'; t.id = `t${r}${c}`; row.appendChild(t);
+    }
+    g.appendChild(row);
+  }
+}
+
+function refreshRow() {
+  const r = guesses.length; if (r >= MAX) return;
+  for (let c = 0; c < LEN; c++) {
+    const t = document.getElementById(`t${r}${c}`);
+    t.textContent = input[c] || '';
+    t.classList.toggle('has-letter', !!input[c]);
+  }
+}
+
+function reveal(ri, g, res, cb) {
+  for (let c = 0; c < LEN; c++) {
+    const t = document.getElementById(`t${ri}${c}`), cl = res[c];
+    setTimeout(() => {
+      t.classList.add('revealed', cl);
+      if (cl === 'absent') t.style.color = 'var(--absent-text)';
+    }, c * 100);
+  }
+  setTimeout(cb, LEN * 100 + 300);
+}
+
+// ── Keyboard ──
+function buildKB() {
+  const kb = document.getElementById('keyboard'); kb.innerHTML = '';
+  KB_ROWS.forEach(row => {
+    const re = document.createElement('div'); re.className = 'kb-row';
+    row.forEach(k => {
+      const el = document.createElement('div');
+      el.className = 'key' + (k.length > 1 ? ' wide' : '');
+      el.textContent = k; el.dataset.key = k;
+      el.addEventListener('click', () => handleKey(k));
+      re.appendChild(el);
+    });
+    kb.appendChild(re);
+  });
+}
+
+function updateKB() {
+  document.querySelectorAll('.key').forEach(k => {
+    const l = k.dataset.key;
+    k.className = 'key' + (l.length > 1 ? ' wide' : '');
+    if (keyStates[l]) k.classList.add(keyStates[l]);
+  });
+}
+
+// ── Input ──
+function onKey(e) {
+  if (e.ctrlKey || e.altKey || e.metaKey) return;
+  if (!document.getElementById('game-screen').classList.contains('active')) return;
+  if (e.key === 'Enter') handleKey('ENTER');
+  else if (e.key === 'Backspace') handleKey('⌫');
+  else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+}
+
+function handleKey(k) {
+  if (done) return;
+  if (k === '⌫') { input = input.slice(0, -1); refreshRow(); }
+  else if (k === 'ENTER') submit();
+  else if (input.length < LEN) { input += k; refreshRow(); }
+}
+
+// ── Guess evaluation ──
+function evaluate(g, a) {
+  const res = Array(LEN).fill('absent'), an = a.split(''), used = Array(LEN).fill(false);
+  for (let i = 0; i < LEN; i++) if (g[i] === an[i]) { res[i] = 'correct'; used[i] = true; }
+  for (let i = 0; i < LEN; i++) {
+    if (res[i] === 'correct') continue;
+    for (let j = 0; j < LEN; j++) if (!used[j] && g[i] === an[j]) { res[i] = 'present'; used[j] = true; break; }
+  }
+  return res;
+}
+
+function submit() {
+  if (input.length < LEN) { shakeRow(guesses.length); toast('not enough letters'); return; }
+  const g = input, res = evaluate(g, word), ri = guesses.length;
+  guesses.push(g); results.push(res); input = '';
+  for (let c = 0; c < LEN; c++) document.getElementById(`t${ri}${c}`).textContent = g[c];
+  reveal(ri, g, res, () => {
+    res.forEach((r, i) => {
+      const l = g[i];
+      if (r === 'correct') keyStates[l] = 'correct';
+      else if (r === 'present' && keyStates[l] !== 'correct') keyStates[l] = 'present';
+      else if (!keyStates[l]) keyStates[l] = 'absent';
+    });
+    updateKB();
+    const won = res.every(r => r === 'correct'), out = guesses.length >= MAX;
+    if (won || out) { done = true; finish(won); }
+  });
+}
+
+function shakeRow(r) {
+  for (let c = 0; c < LEN; c++) {
+    const t = document.getElementById(`t${r}${c}`);
+    t.classList.remove('shake'); void t.offsetWidth; t.classList.add('shake');
+  }
+}
+
+// ── Round end ──
+async function finish(won) {
+  usedWords.add(word);
+  let d = await loadUser(userId) || { id: userId, wins: 0, played: 0, streak: 0, bestStreak: 0, totalGuesses: 0, usedWords: [] };
+  d.played = (d.played || 0) + 1;
+  if (won) {
+    d.wins = (d.wins || 0) + 1;
+    d.streak = (d.streak || 0) + 1;
+    d.totalGuesses = (d.totalGuesses || 0) + guesses.length;
+  } else {
+    d.streak = 0;
+  }
+  d.bestStreak = Math.max(d.bestStreak || 0, d.streak);
+  d.usedWords = [...usedWords].slice(-200);
+  await saveUser(userId, d);
+
+  document.getElementById('result-word').textContent = word;
+  document.getElementById('result-def').textContent = def;
+  const oe = document.getElementById('result-outcome');
+  oe.textContent = won ? `solved in ${guesses.length} ${guesses.length === 1 ? 'guess' : 'guesses'}` : 'better luck next time';
+  oe.className = 'result-outcome ' + (won ? 'win' : 'lose');
+  document.getElementById('result-bar').classList.add('show');
+}
+
+// ── Leaderboard ──
+async function loadLB() {
+  const body = document.getElementById('lb-body');
+  body.innerHTML = `<tr><td colspan="6" class="lb-empty">loading...</td></tr>`;
+  const users = await allUsers();
+  if (!users.length) {
+    body.innerHTML = `<tr><td colspan="6" class="lb-empty">no players yet — be the first</td></tr>`;
+    document.getElementById('board-count').textContent = '';
+    return;
+  }
+  users.sort((a, b) => {
+    if (b.wins !== a.wins) return (b.wins || 0) - (a.wins || 0);
+    const aA = a.wins > 0 ? (a.totalGuesses || 0) / a.wins : 99;
+    const aB = b.wins > 0 ? (b.totalGuesses || 0) / b.wins : 99;
+    return aA - aB;
+  });
+  document.getElementById('board-count').textContent = users.length + ' player' + (users.length !== 1 ? 's' : '');
+  const medals = ['🥇', '🥈', '🥉'];
+  body.innerHTML = users.map((u, i) => {
+    const avg = u.wins > 0 ? ((u.totalGuesses || 0) / u.wins).toFixed(1) : '—';
+    const isMe = u.id === userId;
+    const rank = medals[i] || `<span style="font-family:var(--mono);font-size:11px;color:var(--muted)">${i + 1}</span>`;
+    return `<tr>
+      <td>${rank}</td>
+      <td><span class="lb-name${isMe ? ' me' : ''}">${u.id}</span></td>
+      <td>${u.wins || 0}</td>
+      <td>${u.played || 0}</td>
+      <td>${avg}</td>
+      <td>${u.streak || 0}</td>
+    </tr>`;
+  }).join('');
+}
+window.loadLB = loadLB;
+
+// ── Toast ──
+let tt;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(tt); tt = setTimeout(() => el.classList.remove('show'), 1800);
+}
+</script>
+</body>
+</html>
